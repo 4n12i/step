@@ -1,3 +1,5 @@
+import sys
+
 def find_anagram(random_word, dictionary):
     sorted_random_word = sorted(random_word)
 
@@ -34,9 +36,9 @@ def binary_search(sorted_random_word, new_dictionary):
             break
     return answer
 
-def read_dictionary():
+def read_file(file_name):
     dictionary = []
-    with open('words.txt', 'r', encoding='utf-8') as a_file:
+    with open(file_name, 'r', encoding='utf-8') as a_file:
         for a_line in a_file:
             a_string = a_line.split()[0]
             dictionary.append(a_string)
@@ -49,16 +51,14 @@ def write_anagram(list_of_anagram):
         with open('output.txt', 'w', encoding='utf-8') as a_file:
             a_file.write('\n'.join(list_of_anagram))
 
-def main():
-    dictionary = read_dictionary()
+def main(dict_file, a_word):
+    dictionary = read_file(dict_file)
     
-    print("input a string")
-    random_word = input()
-
-    answer = find_anagram(random_word, dictionary)
-
-    write_anagram(answer)
-    
+    answer = find_anagram(a_word, dictionary)
+    write_anagram(answer)   
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) != 3:
+        print(f'usage: {sys.argv[0]} dict_file a_word')
+        exit(1)
+    main(sys.argv[1], sys.argv[2])
