@@ -61,7 +61,7 @@ class HashTable:
     #               and the value is updated.
     def put(self, key, value):
         assert type(key) == str
-        self.check_size() # Note: Don't remove this code.
+        self.check_size() # Note: Don't remove this code. 
         bucket_index = calculate_hash(key) % self.bucket_size
         item = self.buckets[bucket_index]
         while item:
@@ -107,7 +107,7 @@ class HashTable:
         while item:
             if item.key == key:
                 if prev: # 削除するデータの前後に要素がある場合
-                    prev.next = item.next # 前後の item を繋ぐ
+                    prev.next = item.next # 前後のデータを繋ぐ
                 else: # 削除するデータがリストの先頭である場合
                     self.buckets[bucket_index] = item.next # 次のデータを先頭にする
                 self.item_count -= 1 # 要素数をひとつ減らす
@@ -127,9 +127,74 @@ class HashTable:
     #
     # Note: Don't change this function.
     def check_size(self):
+        # 要素数がテーブルサイズの70%を上回ったらサイズを拡張する
+        if self.item_count > self.bucket_size * 0.7:
+            self.expand_hash_table()
+        # 要素数がテーブルサイズの30%を下回ったらサイズを縮小する
+        if self.item_count < self.bucket_size * 0.3:
+            self.shrink_hash_table()
+        
         assert (self.bucket_size < 100 or
                 self.item_count >= self.bucket_size * 0.3)
 
+    # Rehash
+    # Expand the hash table when the number of items in the hash table hits some threshold
+    # Note: False を返す条件がわからない
+    def expand_hash_table(self):
+        # 拡張後のテーブルの大きさを求める
+        # 元のサイズを2倍した値に近い素数を求める
+        new_bucket_size = update_table_size(self.bucket_size * 2)
+        # 拡張後のテーブルを作成
+        new_buckets = [None] * new_bucket_size
+
+        # すべての要素を新しいテーブルに入れ直す
+        for bucket in self.buckets:
+            if not bucket == None:
+                new_bucket_index = calculate_hash(bucket.key) % new_bucket_size
+                new_buckets[new_bucket_index] = bucket
+
+        # テーブルとテーブルサイズを更新
+        self.buckets = new_buckets
+        self.bucket_size = new_bucket_size
+        return True
+
+    # Shrink the hash table when the number of items in the hash table hits some threshold
+    def shrink_hash_table(self):
+        # 縮小後のテーブルの大きさを求める
+        new_bucket_size = update_table_size(self.bucket_size // 2)
+        # 縮小後のテーブルを作成
+        new_buckets = [None] * new_bucket_size
+
+        # すべての要素を新しいテーブルに入れ直す
+        for bucket in self.buckets:
+            if not bucket == None:
+                new_bucket_index = calculate_hash(bucket.key) % new_bucket_size
+                new_buckets[new_bucket_index] = bucket
+
+        # テーブルとテーブルサイズを更新
+        self.buckets = new_buckets
+        self.bucket_size = new_bucket_size
+        return True
+
+# 素数判定
+# 引数が素数の場合は True, そうでない場合は False を返す
+def is_prime(num):
+    if num < 2:
+        return False
+    else:
+        for i in range(2, int(num ** 0.5)+1):
+            if num % i == 0:
+                return False
+        return True
+
+# ハッシュテーブルのサイズを更新する関数
+# 1. サイズを 2倍 or 0.5倍 する
+# 2. 素数になるまで値をインクリメントする
+# 3. 更新したサイズを返す
+def update_table_size(size):
+    while not is_prime(size):
+        size += 1
+    return size
 
 # Test the functional behavior of the hash table.
 def functional_test():
@@ -196,6 +261,30 @@ def functional_test():
     assert hash_table.size() == 0
     print("Functional tests passed!")
 
+def bucket_size_test():
+    hash_table = HashTable()
+    assert hash_table.put("aaa", 1) == True
+    print(hash_table.bucket_size)
+    assert hash_table.put("bbb", 2) == True
+    print(hash_table.bucket_size)
+    assert hash_table.put("ccc", 3) == True
+    print(hash_table.bucket_size)
+    assert hash_table.put("ddd", 4) == True
+    print(hash_table.bucket_size)
+    assert hash_table.put("eee", 5) == True
+    print(hash_table.bucket_size)
+    assert hash_table.delete("aaa") == True
+    print(hash_table.bucket_size)
+    assert hash_table.delete("bbb") == True
+    print(hash_table.bucket_size)
+    assert hash_table.delete("ccc") == True
+    print(hash_table.bucket_size)
+    assert hash_table.delete("ddd") == True
+    print(hash_table.bucket_size)
+    assert hash_table.delete("eee") == True
+    print(hash_table.bucket_size)
+
+    print('Bucket size tests passed :D')
 
 # Test the performance of the hash table.
 #
@@ -219,7 +308,7 @@ def performance_test():
             rand = random.randint(0, 100000000)
             hash_table.get(str(rand))
         end = time.time()
-        print("%d %.6f" % (iteration, end - begin))
+        print("%d,%.6f" % (iteration, end - begin))
 
     for iteration in range(100):
         random.seed(iteration)
@@ -233,4 +322,5 @@ def performance_test():
 
 if __name__ == "__main__":
     functional_test()
+    bucket_size_test()
     performance_test()
