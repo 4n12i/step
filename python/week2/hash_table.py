@@ -100,7 +100,22 @@ class HashTable:
         #------------------------#
         # Write your code here!  #
         #------------------------#
-        pass
+        self.check_size()
+        bucket_index = calculate_hash(key) % self.bucket_size
+        item = self.buckets[bucket_index]
+        prev = None # ひとつ前のデータを参照
+        while item:
+            if item.key == key:
+                if prev: # 削除するデータの前後に要素がある場合
+                    prev.next = item.next # 前後の item を繋ぐ
+                else: # 削除するデータがリストの先頭である場合
+                    self.buckets[bucket_index] = item.next # 次のデータを先頭にする
+                self.item_count -= 1 # 要素数をひとつ減らす
+                return True
+            else:
+                item = item.next
+                prev = item
+        return False
 
     # Return the total number of items in the hash table.
     def size(self):
