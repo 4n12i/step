@@ -16,6 +16,7 @@ def read_number(line, index):
     token = {'type': 'NUMBER', 'number': number}
     return token, index
 
+
 def read_operators(line, index, operator):
     if operator == '+':
         token = {'type': 'PLUS'}
@@ -34,8 +35,8 @@ def read_brackets(line, index, bracket):
         token = {'type': 'OPEN'}
     else:
         token = {'type': 'CLOSE'}
-    
-    return token, index+1
+
+    return token, index + 1
 
 
 def tokenize(line):
@@ -45,7 +46,7 @@ def tokenize(line):
         if line[index].isdigit():
             (token, index) = read_number(line, index)
         elif line[index] in ['+', '-', '*', '/']:
-           (token, index) = read_operators(line, index, line[index])
+            (token, index) = read_operators(line, index, line[index])
         elif line[index] in ['(', ')']:
             (token, index) = read_brackets(line, index, line[index])
         else:
@@ -72,9 +73,10 @@ def evaluate_bracket(tokens):
         if tokens[index]['type'] == 'OPEN':
             for i in range(index + 1, len(tokens)):
                 if tokens[i]['type'] == 'CLOSE':
-                    tmp = evaluate(tokens[index + 1:i]) # Note: index と i があるとわかりにくい？
+                    # Note: index と i があるとわかりにくい？
+                    tmp = evaluate(tokens[index + 1:i])
                     del tokens[index:i]
-                    tokens[index] = {'type':'NUMBER', 'number':tmp}
+                    tokens[index] = {'type': 'NUMBER', 'number': tmp}
                     break
         index -= 1
 
@@ -109,22 +111,26 @@ def evaluate_four_operations(tokens):
     + 6 + 6           index=4 tokens[3] = result_token
     """
 
-    # * or / 
+    # * or /
     while index < len(tokens):
         if tokens[index]['type'] == 'MULTIPLY':
-            if tokens[index - 1]['type'] == 'NUMBER' and tokens[index - 1]['type'] == 'NUMBER': # 演算子の前後の数字をチェック
-                tmp = tokens[index - 1]['number'] * tokens[index + 1]['number'] # 乗算をする
-                del tokens[index - 1:index + 1] # 計算した部分をリストから削除
-                tokens[index - 1] = {'type':'NUMBER', 'number': tmp} # 計算結果をリストに挿入
+            if tokens[index - 1]['type'] == 'NUMBER' and tokens[index - 1]['type'] == 'NUMBER':  # 演算子の前後の数字をチェック
+                tmp = tokens[index - 1]['number'] * \
+                    tokens[index + 1]['number']  # 乗算をする
+                del tokens[index - 1:index + 1]  # 計算した部分をリストから削除
+                tokens[index - 1] = {'type': 'NUMBER',
+                                     'number': tmp}  # 計算結果をリストに挿入
             else:
                 print('multiply_error')
         elif tokens[index]['type'] == 'DIVIDE':
-            if tokens[index - 1]['type'] == 'NUMBER' and tokens[index - 1]['type'] == 'NUMBER': # 演算子の前後の数字をチェック
+            if tokens[index - 1]['type'] == 'NUMBER' and tokens[index - 1]['type'] == 'NUMBER':  # 演算子の前後の数字をチェック
                 if tokens[index+1]['number'] == 0:
-                    return None # TODO: 0 で割ろうとしたときの処理
-                tmp = tokens[index - 1]['number'] / tokens[index + 1]['number'] # 徐算をする
-                del tokens[index - 1:index + 1] # 計算した部分をリストから削除
-                tokens[index - 1] = {'type':'NUMBER', 'number': tmp} # 計算結果をリストに挿入
+                    return None  # TODO: 0 で割ろうとしたときの処理
+                tmp = tokens[index - 1]['number'] / \
+                    tokens[index + 1]['number']  # 徐算をする
+                del tokens[index - 1:index + 1]  # 計算した部分をリストから削除
+                tokens[index - 1] = {'type': 'NUMBER',
+                                     'number': tmp}  # 計算結果をリストに挿入
             else:
                 print('divide_error')
         elif tokens[index]['type'] == 'NUMBER' or tokens[index]['type'] == 'PLUS' or tokens[index]['type'] == 'MINUS':
@@ -222,7 +228,7 @@ def run_test():
     test("1-2*3")
     test("1-2/3")
     test("1*2/3")
-  
+
     test("1.0+2.1-3")
     test("1.0+2.1*3")
     test("1.0+2.1/3")
@@ -238,7 +244,7 @@ def run_test():
 
     # too big or small
     # TODO: 数値がとても大きい/小さいときのエラー処理
-    test("0.0000000000000000001*0.000000000001") 
+    test("0.0000000000000000001*0.000000000001")
     test("100000000000000000000*10000000000000")
 
     print("==== Test finished! ====\n")
