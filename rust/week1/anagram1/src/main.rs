@@ -1,6 +1,7 @@
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+use std::process;
 
 // 文字列を ASCII コードのベクタに変換する
 fn string_to_bytes(word: &str) -> Vec<u8> {
@@ -67,22 +68,6 @@ fn binary_search(word: str, dict: &Vec<(&Vec<String>, &Vec<String>)>) -> Vec<Vec
 }
 
 
-// [未実装] ファイルの読み込み
-fn read_file(file_name: &String) {
-    let mut a_file = File::open(file_name)
-    // ファイルが見つからない
-    .expect("file not found");
-
-    let mut dictionary = String::new();
-    a_file.read_to_string(&mut dictionary)
-        // ファイルの読み込み中に問題が発生
-        .expect("something went wrong reading the file");
-
-    // テキストは \n{}
-    println!("With text:\n{}", dictionary);   
-}
-
-
 // [未実装] ファイルへの書き込み
 fn write_anagram(list_of_anagram: &Vec<Vec<String>>) {
 
@@ -95,11 +80,34 @@ struct Config {
 }
 
 
-fn parse_config(args: &[String]) -> Config {
-    let file_name = args[1].clone();
-    let word = args[2].clone();
+impl  Config {
+    fn new(args: &[String]) -> Result<Config, &'static str> {
+        // 引数の数をチェック
+        if args.len() < 3 {
+            return Err("not enough arguments");
+        }
 
-    Config { file_name, word }
+        let file_name: String = args[1].clone();
+        let word: String = args[2].clone();
+
+        Ok(Config { file_name, word })
+    }
+}
+
+
+fn run(config: Config) {
+    // ファイルの読み込み
+    let mut a_file = File::open(config.file_name)
+        // ファイルが見つからない
+        .expect("file not found");
+
+    let mut dictionary = String::new();
+    a_file.read_to_string(&mut dictionary)
+        // ファイルの読み込み中に問題が発生
+        .expect("something went wrong reading the file");
+
+    // テキストは \n{}
+    println!("With text:\n{}", dictionary);
 }
 
 
@@ -110,12 +118,17 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     println!("{:?}", args);
 
-    let config = parse_config(&args);
-    println!("file: {}, word: {}", config.file_name, config.word);
+    let config = Config::new(&args).unwrap_or_else(|err| {
+        println!("Problem parsing arguments: {}", err);
+        println!("Usage: anagram1.py dictionary_file word");
+        process::exit(1);
+    });
 
-    read_file(&config.file_name);
+    println!("file: {}, word: {}", config.file_name, config.word);
 
     // dictionary = read_file(file_name);
     // answer = find_anagram(random_word, dictionary);
     // write_anagram(answer)
+
+    run(config);
 }
