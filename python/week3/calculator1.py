@@ -16,34 +16,25 @@ def read_number(line, index):
     token = {'type': 'NUMBER', 'number': number}
     return token, index
 
+def read_operators(line, index, operator):
+    if operator == '+':
+        token = {'type': 'PLUS'}
+    if operator == '-':
+        token = {'type': 'MINUS'}
+    if operator == '*':
+        token = {'type': 'MULTIPLY'}
+    if operator == '/':
+        token = {'type': 'DIVIDE'}
 
-def read_plus(line, index):
-    token = {'type': 'PLUS'}
     return token, index + 1
 
 
-def read_minus(line, index):
-    token = {'type': 'MINUS'}
-    return token, index + 1
-
-
-def read_mult(line, index):
-    token = {'type': 'MULTIPLY'}
-    return token, index + 1
-
-
-def read_div(line, index):
-    token = {'type': 'DIVIDE'}
-    return token, index + 1
-
-
-def read_bracket_open(line, index):
-    token = {'type': 'OPEN'}
-    return token, index+1
-
-
-def read_bracket_close(line, index):
-    token = {'type': 'CLOSE'}
+def read_brackets(line, index, bracket):
+    if bracket == '(':
+        token = {'type': 'OPEN'}
+    else:
+        token = {'type': 'CLOSE'}
+    
     return token, index+1
 
 
@@ -53,18 +44,10 @@ def tokenize(line):
     while index < len(line):
         if line[index].isdigit():
             (token, index) = read_number(line, index)
-        elif line[index] == '+':
-            (token, index) = read_plus(line, index)
-        elif line[index] == '-':
-            (token, index) = read_minus(line, index)
-        elif line[index] == '*':
-            (token, index) = read_mult(line, index)
-        elif line[index] == '/':
-            (token, index) = read_div(line, index)
-        elif line[index] == '(':
-            (token, index) = read_bracket_open(line, index)
-        elif line[index] == ')':
-            (token, index) = read_bracket_close(line, index)
+        elif line[index] in ['+', '-', '*', '/']:
+           (token, index) = read_operators(line, index, line[index])
+        elif line[index] in ['(', ')']:
+            (token, index) = read_brackets(line, index, line[index])
         else:
             print('Invalid character found: ' + line[index])
             exit(1)
@@ -254,7 +237,8 @@ def run_test():
     test("(1+2)-3")
 
     # too big or small
-    test("0.12345678901234567890")
+    # TODO: 数値がとても大きい/小さいときのエラー処理
+    test("0.0000000000000000001*0.000000000001") 
     test("100000000000000000000*10000000000000")
 
     print("==== Test finished! ====\n")
