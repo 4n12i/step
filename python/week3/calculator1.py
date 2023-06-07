@@ -37,6 +37,16 @@ def read_div(line, index):
     return token, index + 1
 
 
+def read_bracket_open(line, index):
+    token = {'type': 'OPEN'}
+    return token, index+1
+
+
+def read_bracket_close(line, index):
+    token = {'type': 'CLOSE'}
+    return token, index+1
+
+
 def tokenize(line):
     tokens = []
     index = 0
@@ -51,6 +61,10 @@ def tokenize(line):
             (token, index) = read_mult(line, index)
         elif line[index] == '/':
             (token, index) = read_div(line, index)
+        elif line[index] == '(':
+            (token, index) = read_bracket_open(line, index)
+        elif line[index] == ')':
+            (token, index) = read_bracket_close(line, index)
         else:
             print('Invalid character found: ' + line[index])
             exit(1)
@@ -58,9 +72,36 @@ def tokenize(line):
     return tokens
 
 
-def evaluate(tokens):
+def evaluate_bracket(tokens):
     """
-    エラー処理などは考えずに一旦最低限の機能だけ実装
+    () の中を計算する
+
+    トークンのリストを逆順にたどる
+    ( を見つけたら、順にたどってペアの ) を探す
+    () の中を計算する
+    リストから、() で囲まれた範囲を切り取って、計算結果を挿入する
+    TODO: () のペアが揃わなかったときの処理
+    """
+
+    index = len(tokens) - 1
+
+    while index >= 0:
+        if tokens[index]['type'] == 'OPEN':
+            for i in range(index + 1, len(tokens)):
+                if tokens[i]['type'] == 'CLOSE':
+                    tmp = evaluate(tokens[index + 1:i]) # Note: index と i があるとわかりにくい？
+                    del tokens[index:i]
+                    tokens[index] = {'type':'NUMBER', 'number':tmp}
+                    break
+        index -= 1
+
+    return tokens
+
+
+def evaluate_four_operations(tokens):
+    """
+    四則演算
+
     リストを2回ループして計算する
     1回目: * /
     2回目: + -
@@ -84,7 +125,7 @@ def evaluate(tokens):
     + 6 + 2           index=4 del tokens[3:5] result_token = {'type' = 'NUMBER', 'number' = 6/2}
     + 6 + 6           index=4 tokens[3] = result_token
     """
- 
+
     # * or / 
     while index < len(tokens):
         if tokens[index]['type'] == 'MULTIPLY':
@@ -96,6 +137,8 @@ def evaluate(tokens):
                 print('multiply_error')
         elif tokens[index]['type'] == 'DIVIDE':
             if tokens[index - 1]['type'] == 'NUMBER' and tokens[index - 1]['type'] == 'NUMBER': # 演算子の前後の数字をチェック
+                if tokens[index+1]['number'] == 0:
+                    return None # TODO: 0 で割ろうとしたときの処理
                 tmp = tokens[index - 1]['number'] / tokens[index + 1]['number'] # 徐算をする
                 del tokens[index - 1:index + 1] # 計算した部分をリストから削除
                 tokens[index - 1] = {'type':'NUMBER', 'number': tmp} # 計算結果をリストに挿入
@@ -105,6 +148,7 @@ def evaluate(tokens):
             index += 1
         else:
             print('token_type_error')
+            exit(1)
 
     # + or -
     index = 1
@@ -118,12 +162,18 @@ def evaluate(tokens):
                 print('Invalid syntax')
                 exit(1)
         index += 1
+
+    return answer
+
+
+def evaluate(tokens):
+    tokens = evaluate_bracket(tokens)
+    answer = evaluate_four_operations(tokens)
     return answer
 
 
 def test(line):
     tokens = tokenize(line)
-    evaluate(tokens)
     actual_answer = evaluate(tokens)
     expected_answer = eval(line)
     if abs(actual_answer - expected_answer) < 1e-8:
@@ -133,26 +183,56 @@ def test(line):
               (line, expected_answer, actual_answer))
 
 
-def test_tokenize(line):
-    token = tokenize(line)
-    print(token)
-
 # Add more tests to this function :)
 def run_test():
     print("==== Test started! ====")
-    # 1数
+
     test("1")
     test("+1")      # 正数
     test("-1")      # 負数
     test("1.1")     # 小数
 
-    # 2数の四則演算
-    test("1+2")
-    test("1-2")
-    test("1*2")
-    test("1/2")
+    """
+    整数 整数
+    整数 小数
+    小数 整数
+    小数 小数
 
-    # 3数の四則演算
+    0 整数
+    整数 0
+    0 小数
+    小数 0
+    """
+
+    # test of +
+    test("1+2")
+    test("1+0.2")
+    test("0.1+2")
+    test("0.1+0.2")
+
+    # test of -
+    test("1-2")
+    test("1-0.2")
+    test("0.1-2")
+    test("0.1-0.2")
+
+    # test of *
+    test("1*2")
+    test("1*0.2")
+    test("0.1*2")
+    test("0.1*0.2")
+
+    # test of /
+    test("1/2")
+    test("1/0.2")
+    test("0.1/2")
+    test("0.1/0.2")
+    test("0/1")
+    # test("1/0")
+    test("0/1.0")
+    # test("1.0/0")
+
+    # mix
     test("1+2-3")
     test("1+2*3")
     test("1+2/3")
@@ -161,7 +241,21 @@ def run_test():
     test("1*2/3")
   
     test("1.0+2.1-3")
-    test("3*2+4/2") 
+    test("1.0+2.1*3")
+    test("1.0+2.1/3")
+    test("1.0-2.1*3")
+    test("1.0-2.1/3")
+    test("1.0*2.1/3")
+
+    # test of brackets
+    test("(1)")
+    test("(((1)))")
+    test("(1+2)")
+    test("(1+2)-3")
+
+    # too big or small
+    test("0.12345678901234567890")
+    test("100000000000000000000*10000000000000")
 
     print("==== Test finished! ====\n")
 
