@@ -134,10 +134,75 @@ class Wikipedia:
         #------------------------#
         # Write your code here!  #
         #------------------------#
-        
-        # ページランクを計算して、重要度が高いページ Top10 を求める
 
-        pass
+        """
+        ページランクを計算して、重要度が高いページ Top10 を求める
+
+        1. 全部のノードに初期値 1.0 を与える
+        2. 各ノードのページランクを隣接ノードに均等に振り分ける
+        (ノードのページランクの85%は隣接ノードに均等に分配する + 残りの 15% は全ノードに均等に分配する)
+        (ノードに隣接ノードがない場合、100% を全ノードに均等に分配する)
+        3. 各ノードのページランクを、受け取ったページランクの合計値に更新する
+        4. ページランクが収束するまで、2 3 を繰り返す
+
+        Note: 収束する条件は？
+        """
+
+
+
+
+        # 100% を全ノードに均等に分配する
+        def share_to_all_node(current_node, rank):
+            new = rank // (number_of_id - 1) # 自分以外の全ノード
+            for i in ids:
+                if i == current_node:
+                    continue
+                shared_rank[i] += new
+            # return page_rank
+
+        # ページランクを更新
+        def update_page_rank(ids, page_rank, shared_rank):
+            for i in ids:
+                page_rank[i] = shared_rank[i]
+                shared_rank[i] = 0 # 初期化
+            return page_rank, shared_rank
+
+        # Debug function
+        def print_status():
+            for i in ids:
+                print(f"{self.titles[i]}, rank: {page_rank[i]}, shared_rank: {shared_rank[i]}")
+            print()
+        
+        ids = self.titles.keys() # 各ノードのID
+        number_of_id = len(ids) # ノードの数
+
+        # 1. 全部のノードに初期値 1.0 を与える
+        # 各ノードのページランク
+        page_rank = {key:1 for key in self.titles.keys()} 
+
+        # 別のノードから振り分けられたページランクの合計値
+        shared_rank = {key:0 for key in self.titles.keys()} 
+
+        # とりあえず5回繰り返してみる
+        for _ in range(5): 
+            # 2. 各ノードのページランクを隣接ノードに均等に振り分ける
+            for i in ids:
+                next_nodes = self.links[i]
+                rank = page_rank[i]
+
+                if len(next_nodes) == 0: # 隣接ノードがないとき
+                    share_to_all_node(i, rank) # 100%
+                else:
+                    new = rank * 0.85 / len(next_nodes) # 85%
+                    for i in next_nodes:
+                        shared_rank[i] += new
+                    share_to_all_node(i, rank * 0.15) # 15%
+
+            # 3. 各ノードのページランクを、受け取ったページランクの合計値に更新する
+            print_status() # デバッグ用
+            (page_rank, shared_rank) = update_page_rank(ids, page_rank, shared_rank)
+
+        return
 
 
     # Do something more interesting!!
@@ -156,7 +221,7 @@ if __name__ == "__main__":
     wikipedia = Wikipedia(sys.argv[1], sys.argv[2])
     # wikipedia.find_longest_titles()
     # wikipedia.find_most_linked_pages()
-    wikipedia.find_shortest_path("渋谷", "小野妹子")
+    # wikipedia.find_shortest_path("渋谷", "小野妹子")
 
     # wikipedia.find_shortest_path("A", "B")
     # wikipedia.find_shortest_path("F", "E")
