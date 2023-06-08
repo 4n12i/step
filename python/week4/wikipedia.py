@@ -93,8 +93,6 @@ class Wikipedia:
             goal_key = get_keys(self.titles, goal)[0]
 
             number_of_steps[start_key] = 0
-            test_dict = {}
-            start_key.append(test_dict[0])
             todo.append(start_key)
 
             while todo: # キューが空になるまで探索を繰り返す
@@ -127,6 +125,8 @@ class Wikipedia:
     
         path = bf_search()
         print(" -> ".join(path) if path else "Not Found :(")
+        
+        return
     
 
     # Calculate the page ranks and print the most popular pages.
@@ -137,70 +137,65 @@ class Wikipedia:
 
         """
         ページランクを計算して、重要度が高いページ Top10 を求める
-
-        1. 全部のノードに初期値 1.0 を与える
-        2. 各ノードのページランクを隣接ノードに均等に振り分ける
-        (ノードのページランクの85%は隣接ノードに均等に分配する + 残りの 15% は全ノードに均等に分配する)
-        (ノードに隣接ノードがない場合、100% を全ノードに均等に分配する)
-        3. 各ノードのページランクを、受け取ったページランクの合計値に更新する
-        4. ページランクが収束するまで、2 3 を繰り返す
-
-        Note: 収束する条件は？
+        ループの前後において小数点以下2位で丸めたページランクが等しい場合、収束したとみなす
         """
 
-
-
-
         # 100% を全ノードに均等に分配する
-        def share_to_all_node(current_node, rank):
-            new = rank // (number_of_id - 1) # 自分以外の全ノード
-            for i in ids:
-                if i == current_node:
-                    continue
-                shared_rank[i] += new
-            # return page_rank
+        def give_to_all_nodes(received, a_pagerank):
+            new = a_pagerank / len(received)
+            for i in received.keys():
+                received[i] += new
 
         # ページランクを更新
-        def update_page_rank(ids, page_rank, shared_rank):
-            for i in ids:
-                page_rank[i] = shared_rank[i]
-                shared_rank[i] = 0 # 初期化
-            return page_rank, shared_rank
+        def update_pagerank(pagerank, received):
+            for i in pagerank.keys():
+                pagerank[i], received[i] = received[i], 0
 
-        # Debug function
-        def print_status():
-            for i in ids:
-                print(f"{self.titles[i]}, rank: {page_rank[i]}, shared_rank: {shared_rank[i]}")
+        # [DEBUG] タイトルとページランクを出力
+        def print_status(pagerank):
+            for key, value in pagerank.items():
+                print(f"{self.titles[key]} {value}")
             print()
-        
-        ids = self.titles.keys() # 各ノードのID
-        number_of_id = len(ids) # ノードの数
 
-        # 1. 全部のノードに初期値 1.0 を与える
-        # 各ノードのページランク
-        page_rank = {key:1 for key in self.titles.keys()} 
+        # ページランクが収束しているか確認する
+        def check_convergence(pagerank, received):
+            for i in pagerank.keys():
+                if not round(pagerank[i], 2) == round(received[i], 2):
+                    return False
+            return True
 
-        # 別のノードから振り分けられたページランクの合計値
-        shared_rank = {key:0 for key in self.titles.keys()} 
+        # ページランクを計算する
+        def get_pageranks():
+            # 1. 全部のノードに初期値 1.0 を与える
+            pagerank = {key:1 for key in self.titles.keys()} # 各ノードのページランク
+            received = {key:0 for key in self.titles.keys()} # 受け取ったページランクの合計値
 
-        # とりあえず5回繰り返してみる
-        for _ in range(5): 
-            # 2. 各ノードのページランクを隣接ノードに均等に振り分ける
-            for i in ids:
-                next_nodes = self.links[i]
-                rank = page_rank[i]
+            while True:
+                # 2. 各ノードのページランクを隣接ノードに均等に振り分ける
+                for key, value in pagerank.items():
+                    next_nodes = self.links[key] # 隣接ノードのリスト
 
-                if len(next_nodes) == 0: # 隣接ノードがないとき
-                    share_to_all_node(i, rank) # 100%
-                else:
-                    new = rank * 0.85 / len(next_nodes) # 85%
-                    for i in next_nodes:
-                        shared_rank[i] += new
-                    share_to_all_node(i, rank * 0.15) # 15%
+                    if len(next_nodes) == 0: # 隣接ノードがないとき
+                        give_to_all_nodes(received, value) # 100% を全ノードに分配
+                    else:
+                        new = value * 0.85 / len(next_nodes) # 85% を隣接ノードに分配
+                        for i in next_nodes:
+                            received[i] += new
+                        give_to_all_nodes(received, value * 0.15) # 15% を全ノードに分配
 
-            # 3. 各ノードのページランクを、受け取ったページランクの合計値に更新する
-            print_status() # デバッグ用
-            (page_rank, shared_rank) = update_page_rank(ids, page_rank, shared_rank)
+                if check_convergence(pagerank, received): # 収束していたらループを終了する
+                    return pagerank
+
+                # 3. 各ノードのページランクを、受け取ったページランクの合計値に更新する
+                update_pagerank(pagerank, received)
+
+        # 重要度が高いページ Top10 を出力する
+        id_and_rank = [(key, value) for key, value in get_pageranks().items()]
+        popular_pages = sorted(id_and_rank, key=lambda x: x[1], reverse=True)[:10]
+
+        print("Popular pages")
+        for i, r in popular_pages:
+            print(f"{self.titles[i]}")
 
         return
 
@@ -219,11 +214,7 @@ if __name__ == "__main__":
         exit(1)
 
     wikipedia = Wikipedia(sys.argv[1], sys.argv[2])
-    # wikipedia.find_longest_titles()
-    # wikipedia.find_most_linked_pages()
-    # wikipedia.find_shortest_path("渋谷", "小野妹子")
-
-    # wikipedia.find_shortest_path("A", "B")
-    # wikipedia.find_shortest_path("F", "E")
-
+    wikipedia.find_longest_titles()
+    wikipedia.find_most_linked_pages()
+    wikipedia.find_shortest_path("渋谷", "小野妹子")
     wikipedia.find_most_popular_pages()
