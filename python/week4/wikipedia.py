@@ -80,49 +80,53 @@ class Wikipedia:
         # Write your code here!  #
         #------------------------#
 
+        """
+        あるページから別のページへの最短経路を出力する
+        """
+
         # value から key を抽出
         def get_keys(dictionary, value):
             return [k for k, v in dictionary.items() if v == value]
 
         # 幅優先探索をして start から goal への経路があるか確認
         def bf_search():
-            # 探索待ちのノードを格納するキュー
-            todo = collections.deque() 
+            todo = collections.deque() # 探索待ちのノードを格納するキュー
+            distance = {key: -1 for key in self.titles.keys()} # 未探索: -1, 探索済み: startからの距離
 
             start_key = get_keys(self.titles, start)[0]
             goal_key = get_keys(self.titles, goal)[0]
 
-            number_of_steps[start_key] = 0
+            distance[start_key] = 0
             todo.append(start_key)
 
             while todo: # キューが空になるまで探索を繰り返す
                 node = todo.popleft() # 先頭を dequeue する
+
                 if node == goal_key: # goal を見つけた場合
-                    return get_path(node, number_of_steps[node]) # 最短経路を求める
+                    return get_path(node, distance) # 最短経路を求める
+
                 for child in self.links[node]: # 子ノードをたどる
-                    if number_of_steps[child] == -1: # 未探索の場合
-                        number_of_steps[child] = number_of_steps[node] + 1 # step をひとつ進めて辞書に追加
+                    if distance[child] == -1: # 未探索の場合
+                        distance[child] = distance[node] + 1 # 距離を更新して辞書に追加
                         todo.append(child) # キューにノードを追加
+
             return None
 
-        # 最短経路のリストを返す
-        # goal を始点として、 bfs で探索した逆順にノードをたどる
-        def get_path(node, result):
+        # goal を始点として bfs で探索した逆順にノードをたどり、最短経路を返す
+        def get_path(node, distance):
             path = [goal]
-            result -= 1 # goal のひとつ前に戻る
+            step = distance[node] - 1
 
-            while result >= 0:
-                for key in get_keys(number_of_steps, result):
-                    if node in self.links[key]:
-                        path.append(self.titles[key])
+            while step >= 0: # start に到着するまで繰り返す
+                for key in get_keys(distance, step):  # 距離 step のノードを取得する
+                    if node in self.links[key]: # node の親ノードである場合
+                        path.append(self.titles[key]) # 経路に加える
                         node = key
                         break
-                result -= 1
+                step -= 1
 
             return path[::-1]
 
-        number_of_steps = {key: -1 for key in self.titles.keys()}
-    
         path = bf_search()
         print(" -> ".join(path) if path else "Not Found :(")
         
@@ -146,16 +150,12 @@ class Wikipedia:
             for i in received.keys():
                 received[i] += new
 
+
         # ページランクを更新
         def update_pagerank(pagerank, received):
             for i in pagerank.keys():
                 pagerank[i], received[i] = received[i], 0
 
-        # [DEBUG] タイトルとページランクを出力
-        def print_status(pagerank):
-            for key, value in pagerank.items():
-                print(f"{self.titles[key]} {value}")
-            print()
 
         # ページランクが収束しているか確認する
         def check_convergence(pagerank, received):
@@ -164,11 +164,24 @@ class Wikipedia:
                     return False
             return True
 
+
+        # [DEBUG] タイトルとページランクを出力
+        def print_status(pagerank):
+            for value in pagerank.values:
+                print(f"{value},", end="")
+            print()
+
+
         # ページランクを計算する
         def get_pageranks():
             # 1. 全部のノードに初期値 1.0 を与える
             pagerank = {key:1 for key in self.titles.keys()} # 各ノードのページランク
             received = {key:0 for key in self.titles.keys()} # 受け取ったページランクの合計値
+
+            # [DEBUG] カラムを出力
+            # for title in self.titles.values():
+            #     print(f"{title},", end="")
+            # print()
 
             while True:
                 # 2. 各ノードのページランクを隣接ノードに均等に振り分ける
@@ -183,6 +196,7 @@ class Wikipedia:
                             received[i] += new
                         give_to_all_nodes(received, value * 0.15) # 15% を全ノードに分配
 
+                print_status(pagerank)
                 if check_convergence(pagerank, received): # 収束していたらループを終了する
                     return pagerank
 
@@ -193,7 +207,7 @@ class Wikipedia:
         id_and_rank = [(key, value) for key, value in get_pageranks().items()]
         popular_pages = sorted(id_and_rank, key=lambda x: x[1], reverse=True)[:10]
 
-        print("Popular pages")
+        # print("Popular pages")
         for i, r in popular_pages:
             print(f"{self.titles[i]}")
 
