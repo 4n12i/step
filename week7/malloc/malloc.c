@@ -27,6 +27,7 @@ void munmap_to_system(void *ptr, size_t size);
 
 typedef struct my_metadata_t {
   size_t size;
+  struct my_metadata_t *prev;
   struct my_metadata_t *next;
 } my_metadata_t;
 
@@ -62,17 +63,22 @@ void my_add_to_free_list(my_metadata_t *metadata) {
   assert(!metadata->next);
   int i = free_list_index(metadata->size);
   metadata->next = my_heap.bin[i];
+  metadata->next->prev = metadata;
+  // metadata->prev = NULL;
   my_heap.bin[i] = metadata;
 }
 
 void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
   if (prev) {
+    metadata->next->prev = prev;
     prev->next = metadata->next;
   } else {
     int i = free_list_index(metadata->size);
+    metadata->next->prev = NULL;
     my_heap.bin[i] = metadata->next;
   }
   metadata->next = NULL;
+  metadata->prev = NULL;
 }
 
 //
@@ -82,6 +88,7 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
 // This is called at the beginning of each challenge.
 void my_initialize() {
   my_heap.dummy.size = 0;
+  my_heap.dummy.prev = NULL;
   my_heap.dummy.next = NULL;
 
   for (int i = 0; i < NUM_OF_BIN; i ++) {
