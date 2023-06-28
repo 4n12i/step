@@ -75,15 +75,24 @@ void my_initialize() {
 // 4000. You are not allowed to use any library functions other than
 // mmap_from_system() / munmap_to_system().
 void *my_malloc(size_t size) {
-  my_metadata_t *metadata = my_heap.free_head;
-  my_metadata_t *prev = NULL;
-  // First-fit: Find the first free slot the object fits.
-  // TODO: Update this logic to Best-fit!
-  while (metadata && metadata->size < size) {
-    prev = metadata;
-    metadata = metadata->next;
+  // Best-fit: Find the smallest free slot the object fits.
+
+  my_metadata_t *current = my_heap.free_head;
+  my_metadata_t *tmp_prev = NULL;
+  my_metadata_t *metadata = NULL; // the smallest size 
+  my_metadata_t *prev = NULL; // previous metadata
+
+  while (current) {
+    if (current->size > size) {
+      if (!metadata || metadata->size > current->size) {
+        prev = tmp_prev;
+        metadata = current;
+      }
+    }
+    tmp_prev = current;
+    current = current->next;
   }
-  // now, metadata points to the first free slot
+  // now, metadata points to the smallest free slot
   // and prev is the previous entry.
 
   if (!metadata) {
