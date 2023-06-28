@@ -31,8 +31,10 @@ typedef struct my_metadata_t {
 } my_metadata_t;
 
 typedef struct my_heap_t {
-  my_metadata_t *free_head;
+  // my_metadata_t *free_head;
   my_metadata_t dummy;
+
+  my_metadata_t *bin[2]; // 128,256,512,1024,2048
 } my_heap_t;
 
 //
@@ -44,17 +46,31 @@ my_heap_t my_heap;
 // Helper functions (feel free to add/remove/edit!)
 //
 
+const int NUM_OF_BIN = 2;
+
+int free_list_index(size_t size) {
+  if (size <= 1024) {
+    return 0;
+  }
+  return 1;
+}
+
 void my_add_to_free_list(my_metadata_t *metadata) {
   assert(!metadata->next);
-  metadata->next = my_heap.free_head;
-  my_heap.free_head = metadata;
+  // metadata->next = my_heap.free_head;
+  // my_heap.free_head = metadata;
+  int i = free_list_index(metadata->size);
+  metadata->next = my_heap.bin[i];
+  my_heap.bin[i] = metadata;
 }
 
 void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
   if (prev) {
     prev->next = metadata->next;
   } else {
-    my_heap.free_head = metadata->next;
+    // my_heap.free_head = metadata->next;
+    int i = free_list_index(metadata->size);
+    my_heap.bin[i] = metadata->next;
   }
   metadata->next = NULL;
 }
@@ -65,9 +81,12 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
 
 // This is called at the beginning of each challenge.
 void my_initialize() {
-  my_heap.free_head = &my_heap.dummy;
+  // my_heap.free_head = &my_heap.dummy;
   my_heap.dummy.size = 0;
   my_heap.dummy.next = NULL;
+
+  my_heap.bin[0] = &my_heap.dummy;
+  my_heap.bin[1] = &my_heap.dummy;
 }
 
 // my_malloc() is called every time an object is allocated.
@@ -77,20 +96,34 @@ void my_initialize() {
 void *my_malloc(size_t size) {
   // Best-fit: Find the smallest free slot the object fits.
 
-  my_metadata_t *current = my_heap.free_head;
-  my_metadata_t *tmp_prev = NULL;
-  my_metadata_t *metadata = NULL; // the smallest size 
-  my_metadata_t *prev = NULL; // previous metadata
+  my_metadata_t *current;
+  my_metadata_t *tmp_prev;
+  my_metadata_t *metadata; // the smallest size 
+  my_metadata_t *prev; // previous metadata
 
-  while (current) {
-    if (current->size > size) {
-      if (!metadata || metadata->size > current->size) {
-        prev = tmp_prev;
-        metadata = current;
+  int i = free_list_index(size);
+  while (i < NUM_OF_BIN) {
+    current = my_heap.bin[i];
+    tmp_prev = NULL;
+    metadata = NULL;
+    prev = NULL;
+
+    while (current) {
+      if (current->size >= size) {
+        if (!metadata || metadata->size > current->size) {
+          prev = tmp_prev;
+          metadata = current;
+        }
       }
+      tmp_prev = current;
+      current = current->next;
     }
-    tmp_prev = current;
-    current = current->next;
+
+    if (!metadata) {
+      i ++;
+    } else {
+      break;
+    }
   }
   // now, metadata points to the smallest free slot
   // and prev is the previous entry.
@@ -121,11 +154,16 @@ void *my_malloc(size_t size) {
   //     metadata   ptr
   void *ptr = metadata + 1;
   size_t remaining_size = metadata->size - size;
-  metadata->size = size;
   // Remove the free slot from the free list.
   my_remove_from_free_list(metadata, prev);
 
   if (remaining_size > sizeof(my_metadata_t)) {
+    // Shrink the metadata for the allocated object
+    // to separate the rest of the region corresponding to remaining_size.
+    // If the remaining_size is not large enough to make a new metadata,
+    // this code path will not be taken and the region will be managed
+    // as a part of the allocated object.
+    metadata->size = size;
     // Create a new metadata for the remaining free slot.
     //
     // ... | metadata | object | metadata | free slot | ...
