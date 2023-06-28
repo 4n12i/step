@@ -32,7 +32,7 @@ typedef struct my_metadata_t {
 
 typedef struct my_heap_t {
   my_metadata_t dummy;
-  my_metadata_t *bin[10]; // 8,16,32,64,128,256,512,1024,2048,4096
+  my_metadata_t *bin[10]; // head of free-list (8,16,32,64,128,256,512,1024,2048,4096)
 } my_heap_t;
 
 //
@@ -60,8 +60,6 @@ int free_list_index(size_t size) {
 
 void my_add_to_free_list(my_metadata_t *metadata) {
   assert(!metadata->next);
-  // metadata->next = my_heap.free_head;
-  // my_heap.free_head = metadata;
   int i = free_list_index(metadata->size);
   metadata->next = my_heap.bin[i];
   my_heap.bin[i] = metadata;
@@ -71,7 +69,6 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
   if (prev) {
     prev->next = metadata->next;
   } else {
-    // my_heap.free_head = metadata->next;
     int i = free_list_index(metadata->size);
     my_heap.bin[i] = metadata->next;
   }
@@ -98,7 +95,6 @@ void my_initialize() {
 // mmap_from_system() / munmap_to_system().
 void *my_malloc(size_t size) {
   // Best-fit: Find the smallest free slot the object fits.
-
   my_metadata_t *current;
   my_metadata_t *tmp_prev;
   my_metadata_t *metadata; // the smallest size 
