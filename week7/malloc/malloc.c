@@ -31,10 +31,8 @@ typedef struct my_metadata_t {
 } my_metadata_t;
 
 typedef struct my_heap_t {
-  // my_metadata_t *free_head;
   my_metadata_t dummy;
-
-  my_metadata_t *bin[2]; // 128,256,512,1024,2048
+  my_metadata_t *bin[10]; // 8,16,32,64,128,256,512,1024,2048,4096
 } my_heap_t;
 
 //
@@ -46,13 +44,18 @@ my_heap_t my_heap;
 // Helper functions (feel free to add/remove/edit!)
 //
 
-const int NUM_OF_BIN = 2;
+const int NUM_OF_BIN = 10;
 
 int free_list_index(size_t size) {
-  if (size <= 1024) {
-    return 0;
+  int range = 8;
+  for (int i = 0; i < NUM_OF_BIN; i ++) {
+    if (size <= range) {
+      return i;
+    } else {
+      range *= 2;
+    }
   }
-  return 1;
+  return 9;
 }
 
 void my_add_to_free_list(my_metadata_t *metadata) {
@@ -81,12 +84,12 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
 
 // This is called at the beginning of each challenge.
 void my_initialize() {
-  // my_heap.free_head = &my_heap.dummy;
   my_heap.dummy.size = 0;
   my_heap.dummy.next = NULL;
 
-  my_heap.bin[0] = &my_heap.dummy;
-  my_heap.bin[1] = &my_heap.dummy;
+  for (int i = 0; i < NUM_OF_BIN; i ++) {
+    my_heap.bin[i] = &my_heap.dummy;
+  }
 }
 
 // my_malloc() is called every time an object is allocated.
