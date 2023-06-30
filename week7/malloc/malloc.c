@@ -25,15 +25,16 @@ void munmap_to_system(void *ptr, size_t size);
 // Struct definitions
 //
 
+const int NUM_OF_BIN = 512;
+
 typedef struct my_metadata_t {
   size_t size;
-  struct my_metadata_t *prev;
   struct my_metadata_t *next;
 } my_metadata_t;
 
 typedef struct my_heap_t {
   my_metadata_t dummy;
-  my_metadata_t *bin[10]; // head of free-list (8,16,32,64,128,256,512,1024,2048,4096)
+  my_metadata_t *bin[NUM_OF_BIN]; // head of free-list
 } my_heap_t;
 
 //
@@ -44,41 +45,29 @@ my_heap_t my_heap;
 //
 // Helper functions (feel free to add/remove/edit!)
 //
-
-const int NUM_OF_BIN = 10;
-
 int free_list_index(size_t size) {
-  int range = 8;
-  for (int i = 0; i < NUM_OF_BIN; i ++) {
-    if (size <= range) {
-      return i;
-    } else {
-      range *= 2;
-    }
+  int range = size / 8 - 1;
+  if (range < NUM_OF_BIN) {
+    return range;
   }
-  return 9;
+  return NUM_OF_BIN - 1;
 }
 
 void my_add_to_free_list(my_metadata_t *metadata) {
   assert(!metadata->next);
   int i = free_list_index(metadata->size);
   metadata->next = my_heap.bin[i];
-  metadata->next->prev = metadata;
-  // metadata->prev = NULL;
   my_heap.bin[i] = metadata;
 }
 
 void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
   if (prev) {
-    metadata->next->prev = prev;
     prev->next = metadata->next;
   } else {
     int i = free_list_index(metadata->size);
-    metadata->next->prev = NULL;
     my_heap.bin[i] = metadata->next;
   }
   metadata->next = NULL;
-  metadata->prev = NULL;
 }
 
 //
@@ -88,7 +77,6 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
 // This is called at the beginning of each challenge.
 void my_initialize() {
   my_heap.dummy.size = 0;
-  my_heap.dummy.prev = NULL;
   my_heap.dummy.next = NULL;
 
   for (int i = 0; i < NUM_OF_BIN; i ++) {
