@@ -59,16 +59,12 @@ int free_list_index(size_t size) {
 void my_add_to_free_list(my_metadata_t *metadata) {
   assert(!metadata->next);
   int i = free_list_index(metadata->size);
-  // printf("index: %d\n", i);
 
   metadata->next = my_heap.bin[i];
   metadata->next->prev = metadata;
   metadata->prev = NULL;
   my_heap.bin[i] = metadata;
-
   metadata->free = true;
-
-  // printf("complete add %zu byte !\n", metadata->size);
 }
 
 void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
@@ -83,9 +79,7 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
   }
   metadata->next = NULL;
   metadata->prev = NULL;
-
   metadata->free = false;
-  // printf("complete remove %zu byte !\n", metadata->size);
 }
 
 //
@@ -102,7 +96,6 @@ void my_initialize() {
 
   for (int i = 0; i < NUM_OF_BIN; i ++) {
     my_heap.bin[i] = &my_heap.dummy;
-    // printf("my_heap bin %x, %d\n", my_heap.bin[i]->prev, my_heap.bin[i]->free);
   }
 }
 
@@ -113,25 +106,20 @@ void my_initialize() {
 void *my_malloc(size_t size) {
   // Best-fit: Find the smallest free slot the object fits.
   my_metadata_t *current;
-  // my_metadata_t *tmp_prev;
   my_metadata_t *metadata; // the smallest size 
   my_metadata_t *prev; // previous metadata
 
   int i = free_list_index(size);
   while (i < NUM_OF_BIN) {
     current = my_heap.bin[i];
-    // tmp_prev = NULL;
     metadata = NULL;
-    // prev = NULL;
-
+    
     while (current) {
       if (current->size >= size) {
         if (!metadata || metadata->size > current->size) {
-          // prev = tmp_prev;
           metadata = current;
         }
       }
-      // tmp_prev = current;
       current = current->next;
     }
 
@@ -157,15 +145,9 @@ void *my_malloc(size_t size) {
     size_t buffer_size = 4096;
     my_metadata_t *metadata = (my_metadata_t *)mmap_from_system(buffer_size);
     metadata->size = buffer_size - sizeof(my_metadata_t);
+    metadata->prev = NULL;
     metadata->next = NULL;
-
-
-    metadata->prev = NULL; // いる？
-
-
-
     // Add the memory region to the free list.
-    // // printf("expand free-list!\n");
     my_add_to_free_list(metadata);
     // Now, try my_malloc() again. This should succeed.
     return my_malloc(size);
@@ -197,14 +179,9 @@ void *my_malloc(size_t size) {
     //                   size       remaining size
     my_metadata_t *new_metadata = (my_metadata_t *)((char *)ptr + size);
     new_metadata->size = remaining_size - sizeof(my_metadata_t);
+    new_metadata->prev = NULL;
     new_metadata->next = NULL;
-
-
-    new_metadata->prev = NULL; // いる？
-
-
     // Add the remaining free slot to the free list.
-    // // printf("shrink free-list !\n");
     my_add_to_free_list(new_metadata);
   }
   return ptr;
@@ -231,7 +208,6 @@ void my_free(void *ptr) {
   // 左の空き領域の結合
   // オブジェクトをメタデータでサンドイッチする
   // ... | metadata | object | metadata | metadata | free slot | ...
-  // 左隣がfreeか確かめる
 
   // if check the right object
   // ... | m1 | o1 | m1 | m2 | o2 | m2 |...
@@ -244,18 +220,16 @@ void my_free(void *ptr) {
   //               p-2  m    p
 
   my_metadata_t *metadata = (my_metadata_t *)ptr - 1;
-  // printf("metadata: %x\n", metadata);
-
   my_metadata_t *right = (my_metadata_t *)(ptr + metadata->size) + 1;
-
   my_metadata_t *left = (my_metadata_t *)ptr + 2;
 
-  
-  //メンバ free と双方向を生かしてマージする版
   assert(right);
   if (right->free) {
     my_remove_from_free_list(right, right->prev);
     metadata->size += right->size + sizeof(my_metadata_t);
+
+    my_add_to_free_list(metadata);
+    return;
   }
 
   assert(left);
