@@ -28,15 +28,19 @@ void munmap_to_system(void *ptr, size_t size);
 const int NUM_OF_BIN = 512;
 
 typedef struct my_metadata_t {
+  // ... | metadata | object | metadata |...
+  //     ^          ^        ^
+  //     metadata   ptr      pair
   size_t size;
   struct my_metadata_t *prev;
   struct my_metadata_t *next;
+  struct my_metadata_t *pair; // Right side of the object.
   bool free;
 } my_metadata_t;
 
 typedef struct my_heap_t {
   my_metadata_t dummy;
-  my_metadata_t *bin[NUM_OF_BIN]; // head of free-list
+  my_metadata_t *bin[NUM_OF_BIN]; // Head of the free-list.
 } my_heap_t;
 
 //
@@ -58,6 +62,7 @@ int free_list_index(size_t size) {
 void my_add_to_free_list(my_metadata_t *metadata) {
   assert(!metadata->next);
   int i = free_list_index(metadata->size);
+
   metadata->next = my_heap.bin[i];
   metadata->next->prev = metadata;
   metadata->prev = NULL;
@@ -74,8 +79,8 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
     metadata->next->prev = NULL;
     my_heap.bin[i] = metadata->next;
   }
-  metadata->prev = NULL;
   metadata->next = NULL;
+  metadata->prev = NULL;
   metadata->free = false;
 }
 
@@ -88,6 +93,7 @@ void my_initialize() {
   my_heap.dummy.size = 0;
   my_heap.dummy.prev = NULL;
   my_heap.dummy.next = NULL;
+  my_heap.dummy.pair = NULL;
   my_heap.dummy.free = false;
 
   for (int i = 0; i < NUM_OF_BIN; i ++) {
@@ -109,7 +115,7 @@ void *my_malloc(size_t size) {
   while (i < NUM_OF_BIN) {
     current = my_heap.bin[i];
     metadata = NULL;
-
+    
     while (current) {
       if (current->size >= size) {
         if (!metadata || metadata->size > current->size) {
@@ -140,9 +146,14 @@ void *my_malloc(size_t size) {
     //            buffer_size
     size_t buffer_size = 4096;
     my_metadata_t *metadata = (my_metadata_t *)mmap_from_system(buffer_size);
-    metadata->size = buffer_size - sizeof(my_metadata_t);
+    metadata->size = buffer_size - sizeof(my_metadata_t) * 2;
     metadata->prev = NULL;
     metadata->next = NULL;
+    // my_metadata_t *metadata_pair = metadata + 1;
+    metadata->pair = metadata + 1;
+    metadata->pair->pair = metadata;
+    // metadata->pair = metadata_pair;
+    // metadata_pair->pair = metadata;
     // Add the memory region to the free list.
     my_add_to_free_list(metadata);
     // Now, try my_malloc() again. This should succeed.
@@ -174,9 +185,11 @@ void *my_malloc(size_t size) {
     //                 <------><---------------------->
     //                   size       remaining size
     my_metadata_t *new_metadata = (my_metadata_t *)((char *)ptr + size);
-    new_metadata->size = remaining_size - sizeof(my_metadata_t);
+    new_metadata->size = remaining_size - sizeof(my_metadata_t) * 2;
     new_metadata->prev = NULL;
     new_metadata->next = NULL;
+    new_metadata->pair = new_metadata + 1;
+    new_metadata->pair->pair = new_metadata;
     // Add the remaining free slot to the free list.
     my_add_to_free_list(new_metadata);
   }
@@ -191,12 +204,50 @@ void my_free(void *ptr) {
   // ... | metadata | object | ...
   //     ^          ^
   //     metadata   ptr
-  my_metadata_t *metadata = (my_metadata_t *)ptr - 1;
 
-  my_metadata_t *right = (my_metadata_t *)(ptr + metadata->size);
+  // merge free objects (right)
+  // 1. 右隣が free か確かめる
+  // 2. free である場合、free-list から削除
+  // 3. merge した領域の metadata を作る
+  // 4. metadata を free-list に挿入
+  // ... | metadata | object | metadata | object |...
+  //     ^          ^        ^          
+  //     metadata   ptr      ptr+size
+
+  // 左の空き領域の結合
+  // オブジェクトをメタデータでサンドイッチする
+  // ... | metadata | object | metadata | metadata | free slot | ...
+
+  // if check the right object
+  // ... | m1 | o1 | m1 | m2 | o2 | m2 |...
+  //     ^    ^         ^                 
+  //     m    p         p+size(o)+size(m)
+
+  // if check the left object
+  // ... | m1 | o1 | m1 | m2 | o2 | m2 |...
+  //               ^    ^    ^    
+  //               p-2  m    p
+
+  my_metadata_t *metadata = (my_metadata_t *)ptr - 1;
+  my_metadata_t *right = (my_metadata_t *)(ptr + metadata->size) + 1;
+  my_metadata_t *left = (my_metadata_t *)ptr - 2;
+
+  assert(right);
   if (right->free) {
     my_remove_from_free_list(right, right->prev);
     metadata->size += right->size + sizeof(my_metadata_t);
+
+    my_add_to_free_list(metadata);
+    return;
+  }
+
+  assert(left);
+  if (left->pair->free) {
+    left->pair->size += metadata->size + sizeof(my_metadata_t);
+    my_remove_from_free_list(metadata, metadata->prev);
+
+    my_add_to_free_list(left->pair);
+    return;
   }
 
   // Add the free slot to the free list.
